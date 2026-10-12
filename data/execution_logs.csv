@@ -1,0 +1,17 @@
+execution_id,timestamp,workflow_id,workflow_name,status,duration_seconds,error_message,failed_step
+EX-101,2026-10-10 09:00:15,WF001,Inventory Restock Check,SUCCESS,1.25,,
+EX-102,2026-10-10 09:12:40,WF001,Inventory Restock Check,SUCCESS,1.1,,
+EX-103,2026-10-10 09:30:00,WF002,Product Price Validation,SUCCESS,2.15,,
+EX-104,2026-10-10 10:05:22,WF003,Vendor File Processing,FAILURE,4.5,Invalid schema: Missing SKU column,validate_required_fields
+EX-105,2026-10-10 10:20:10,WF003,Vendor File Processing,FAILURE,5.2,Encoding error: Unexpected byte 0x92,read_file
+EX-106,2026-10-10 10:45:00,WF003,Vendor File Processing,SUCCESS,3.8,,
+EX-107,2026-10-10 11:15:30,WF003,Vendor File Processing,FAILURE,4.9,File not found: vendor_oct.xlsx,read_file
+EX-108,2026-10-10 11:40:00,WF004,Product Description Generator,SUCCESS,6.4,,
+EX-109,2026-10-10 12:00:10,WF005,Customer Order Status,SUCCESS,0.85,,
+EX-110,2026-10-10 12:30:20,WF005,Customer Order Status,SUCCESS,0.92,,
+EX-111,2026-10-10 13:10:05,WF006,Duplicate Product Detection,SUCCESS,7.8,,
+EX-112,2026-10-10 13:50:00,WF007,Marketing Campaign Brief,FAILURE,1.1,"Missing required inputs: campaign_goal, dates",validate_inputs
+EX-113,2026-10-10 14:15:15,WF007,Marketing Campaign Brief,SUCCESS,5.5,,
+EX-114,2026-10-10 14:40:22,WF008,SEO Keyword Classification,SUCCESS,3.2,,
+EX-115,2026-10-10 15:10:00,WF009,Employee Task Assignment,SUCCESS,1.4,,
+EX-116,2026-10-10 15:45:10,WF010,Workflow Performance Report,SUCCESS,2.3,,

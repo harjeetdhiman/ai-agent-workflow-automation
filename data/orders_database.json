@@ -1,0 +1,75 @@
+{
+  "orders": [
+    {
+      "order_id": "ORD-1001",
+      "customer_email": "john.doe@example.com",
+      "customer_name": "John Doe",
+      "order_date": "2026-10-08",
+      "status": "Shipped",
+      "items": [
+        {
+          "sku": "SKU-101",
+          "name": "Ergonomic Office Chair",
+          "quantity": 1,
+          "price": 199.99
+        }
+      ],
+      "total_amount": 199.99,
+      "shipment": {
+        "carrier": "FedEx",
+        "tracking_number": "TRK-9876543210",
+        "status": "In Transit",
+        "current_location": "Chicago Logistics Hub",
+        "estimated_delivery": "2026-10-15",
+        "last_updated": "2026-10-12 08:30 AM"
+      }
+    },
+    {
+      "order_id": "ORD-1002",
+      "customer_email": "alice.smith@example.com",
+      "customer_name": "Alice Smith",
+      "order_date": "2026-10-05",
+      "status": "Delivered",
+      "items": [
+        {
+          "sku": "SKU-102",
+          "name": "Wireless Mechanical Keyboard",
+          "quantity": 1,
+          "price": 89.99
+        },
+        {
+          "sku": "SKU-107",
+          "name": "Leather Desk Mat",
+          "quantity": 1,
+          "price": 18.0
+        }
+      ],
+      "total_amount": 107.99,
+      "shipment": {
+        "carrier": "UPS",
+        "tracking_number": "UPS-1122334455",
+        "status": "Delivered",
+        "current_location": "Front Porch / Mailbox",
+        "estimated_delivery": "2026-10-10",
+        "last_updated": "2026-10-10 02:15 PM"
+      }
+    },
+    {
+      "order_id": "ORD-1003",
+      "customer_email": "bob.wilson@example.com",
+      "customer_name": "Bob Wilson",
+      "order_date": "2026-10-12",
+      "status": "Processing",
+      "items": [
+        {
+          "sku": "SKU-104",
+          "name": "27-inch 4K Monitor",
+          "quantity": 1,
+          "price": 349.99
+        }
+      ],
+      "total_amount": 349.99,
+      "shipment": null
+    }
+  ]
+}

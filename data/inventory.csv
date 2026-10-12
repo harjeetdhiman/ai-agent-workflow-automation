@@ -1,0 +1,9 @@
+sku,product_name,category,current_stock,minimum_stock,target_stock,unit_cost
+SKU-101,Ergonomic Office Chair,Furniture,4,10,25,120.0
+SKU-102,Wireless Mechanical Keyboard,Electronics,2,8,20,65.0
+SKU-103,USB-C Multiport Hub,Electronics,0,15,30,25.0
+SKU-104,27-inch 4K Monitor,Electronics,12,10,20,280.0
+SKU-105,Standing Desk Converter,Furniture,10,10,20,150.0
+SKU-106,Noise-Cancelling Headphones,Electronics,3,12,25,199.0
+SKU-107,Leather Desk Mat,Accessories,35,15,40,18.0
+SKU-108,Aluminum Laptop Stand,Accessories,5,15,35,32.0

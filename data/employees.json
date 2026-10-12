@@ -1,0 +1,84 @@
+{
+  "employees": [
+    {
+      "employee_id": "EMP-01",
+      "name": "Sarah Connor",
+      "role": "Senior Full-Stack Engineer",
+      "skills": [
+        "Python",
+        "FastAPI",
+        "React",
+        "TypeScript",
+        "Docker",
+        "PostgreSQL"
+      ],
+      "current_workload_pct": 45,
+      "active_tasks": 2,
+      "max_tasks": 5
+    },
+    {
+      "employee_id": "EMP-02",
+      "name": "Alex Chen",
+      "role": "Lead Backend Developer",
+      "skills": [
+        "Python",
+        "Django",
+        "Kafka",
+        "PostgreSQL",
+        "Redis",
+        "Kubernetes"
+      ],
+      "current_workload_pct": 85,
+      "active_tasks": 4,
+      "max_tasks": 5
+    },
+    {
+      "employee_id": "EMP-03",
+      "name": "Priya Sharma",
+      "role": "AI & Machine Learning Specialist",
+      "skills": [
+        "Python",
+        "PyTorch",
+        "LLMs",
+        "LangChain",
+        "NLP",
+        "Data Pipelines"
+      ],
+      "current_workload_pct": 30,
+      "active_tasks": 1,
+      "max_tasks": 4
+    },
+    {
+      "employee_id": "EMP-04",
+      "name": "David Kim",
+      "role": "DevOps & Cloud Engineer",
+      "skills": [
+        "AWS",
+        "Terraform",
+        "Kubernetes",
+        "CI/CD",
+        "Docker",
+        "Linux"
+      ],
+      "current_workload_pct": 95,
+      "active_tasks": 5,
+      "max_tasks": 5
+    },
+    {
+      "employee_id": "EMP-05",
+      "name": "Elena Rostova",
+      "role": "Frontend Specialist",
+      "skills": [
+        "React",
+        "Next.js",
+        "CSS",
+        "Tailwind",
+        "UI/UX",
+        "Figma"
+      ],
+      "current_workload_pct": 100,
+      "active_tasks": 4,
+      "max_tasks": 4
+    }
+  ]
+}
