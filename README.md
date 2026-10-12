@@ -260,9 +260,10 @@ python cli.py
 
 ### Option B: Interactive Streamlit Web Dashboard
 Launch the visual web application:
-```bash
-streamlit run app.py
+```powershell
+python -m streamlit run app.py
 ```
+*(Or simply double-click / run `.\run_app.bat`)*
 Open `http://localhost:8501` in your browser to inspect the loaded Excel registry, select test questions, view step-by-step progress, and test live 11th workflow extensibility.
 
 ---

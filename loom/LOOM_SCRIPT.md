@@ -2,7 +2,7 @@
 
 **Assignment:** AI Agent Workflow Automation System  
 **Target Duration:** 5 to 7 Minutes  
-**Demonstration Tools:** Terminal / CLI (`python cli.py --benchmark`) & Streamlit UI (`streamlit run app.py`)
+**Demonstration Tools:** Terminal / CLI (`python cli.py --benchmark`) & Streamlit UI (`python -m streamlit run app.py` or `.\run_app.bat`)
 
 ---
 
