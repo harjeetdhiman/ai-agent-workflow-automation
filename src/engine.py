@@ -229,12 +229,13 @@ class WorkflowEngine:
         summary_lines = [
             f"### Inventory Restock Summary",
             f"**Total Products Scanned:** {restock_data['total_products_checked']}",
-            f"**Products Requiring Restock:** {restock_data['products_needing_restock_count']}\n",
-            "| SKU | Product Name | Current Stock | Minimum Threshold | Suggested Reorder |",
-            "| :--- | :--- | :--- | :--- | :--- |"
+            f"**Products Requiring Restock:** {restock_data['products_needing_restock_count']}",
+            f"*(Formula: Reorder Quantity = Target Stock − Current Stock)*\n",
+            "| SKU | Product Name | Current Stock | Minimum Threshold | Target Capacity | Suggested Reorder |",
+            "| :--- | :--- | :--- | :--- | :--- | :--- |"
         ]
         for it in items:
-            summary_lines.append(f"| {it['sku']} | {it['product_name']} | {it['current_stock']} | {it['minimum_threshold']} | **{it['suggested_reorder_qty']} units** |")
+            summary_lines.append(f"| {it['sku']} | {it['product_name']} | {it['current_stock']} | {it['minimum_threshold']} | {it.get('target_stock', '-')} | **{it['suggested_reorder_qty']} units** |")
 
         return {
             "status": "SUCCESS",
