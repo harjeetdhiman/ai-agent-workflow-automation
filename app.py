@@ -18,34 +18,50 @@ st.markdown("""
     .main-title {
         font-size: 2.2rem;
         font-weight: 700;
-        color: #1E293B;
         margin-bottom: 0.2rem;
     }
     .sub-title {
         font-size: 1.05rem;
-        color: #64748B;
+        opacity: 0.75;
         margin-bottom: 1.5rem;
     }
-    .metric-card {
-        background-color: #F8FAFC;
-        border: 1px solid #E2E8F0;
-        border-radius: 8px;
-        padding: 12px;
-        margin-bottom: 8px;
-    }
     .step-box {
-        background: #F1F5F9;
-        padding: 10px 14px;
-        border-radius: 6px;
-        margin-bottom: 6px;
-        border-left: 4px solid #3B82F6;
+        background: rgba(59, 130, 246, 0.10);
+        border: 1px solid rgba(59, 130, 246, 0.30);
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        border-left: 5px solid #3B82F6;
+        color: inherit;
+    }
+    .step-box b {
+        color: inherit;
+        font-size: 1.02rem;
+    }
+    .step-box small {
+        color: inherit;
+        opacity: 0.85;
+        display: block;
+        margin-top: 4px;
     }
     .condition-box {
-        background: #F8FAFC;
-        padding: 8px 12px;
-        border-radius: 6px;
-        margin-bottom: 6px;
-        border-left: 4px solid #10B981;
+        background: rgba(16, 185, 129, 0.10);
+        border: 1px solid rgba(16, 185, 129, 0.30);
+        padding: 10px 14px;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        border-left: 5px solid #10B981;
+        color: inherit;
+    }
+    .condition-box b {
+        color: inherit;
+        font-size: 1.0rem;
+    }
+    .condition-box small {
+        color: inherit;
+        opacity: 0.85;
+        display: block;
+        margin-top: 4px;
     }
 </style>
 """, unsafe_allow_html=True)
