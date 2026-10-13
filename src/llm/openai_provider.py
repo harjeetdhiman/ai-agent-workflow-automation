@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Optional
 from openai import OpenAI
 from src.schemas import WorkflowDefinition, WorkflowSelection
 from src.llm.base import BaseLLMProvider

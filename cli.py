@@ -1,4 +1,3 @@
-import sys
 import argparse
 from src.loader import workflow_loader
 from src.engine import workflow_engine

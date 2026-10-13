@@ -2,10 +2,8 @@ import time
 import uuid
 import logging
 from typing import Dict, Any, Optional, Callable
-from datetime import datetime
 
 from src.schemas import (
-    WorkflowDefinition,
     WorkflowSelection,
     StepResult,
     ConditionEvaluation,
@@ -163,7 +161,6 @@ class WorkflowEngine:
         }
 
     def _exec_wf001_inventory_restock(self, wf_def, params, user_request, steps_executed, conditions_evaluated, tools_invoked):
-        t0 = time.time()
         file_path = params.get("file_path", "data/inventory.csv")
         threshold = params.get("threshold")
 

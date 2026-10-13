@@ -1,4 +1,3 @@
-import os
 from src.llm.base import BaseLLMProvider
 from src.llm.mock_provider import MockLLMProvider
 from src.llm.openai_provider import OpenAIProvider

@@ -1,6 +1,6 @@
 import inspect
 import logging
-from typing import Callable, Dict, Any, Optional
+from typing import Callable, Dict, Any
 
 logger = logging.getLogger(__name__)
 

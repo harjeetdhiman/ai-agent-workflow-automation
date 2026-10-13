@@ -1,6 +1,6 @@
 import os
 import csv
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from src.tools.registry import tool_registry
 
 

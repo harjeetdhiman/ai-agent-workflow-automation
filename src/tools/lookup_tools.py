@@ -1,6 +1,6 @@
 import os
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from src.tools.registry import tool_registry
 
 
