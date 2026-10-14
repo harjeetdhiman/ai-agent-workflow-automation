@@ -789,19 +789,21 @@ class WorkflowEngine:
 
     def _exec_wf008_seo_keyword_classification(self, wf_def, params, user_request, steps_executed, conditions_evaluated, tools_invoked):
         file_path = params.get("file_path", "data/keywords.csv")
+        custom_kw = params.get("custom_keywords")
 
+        step1_summary = f"Ingested {len(custom_kw)} custom keywords from user request." if custom_kw else f"Ingested keywords from {file_path}"
         steps_executed.append(StepResult(
             step_number=1,
             step_name="Read keywords",
             status="SUCCESS",
             tool_name="csv_reader",
-            tool_input={"file_path": file_path},
-            tool_output_summary=f"Ingested keywords from {file_path}",
+            tool_input={"file_path": file_path, "custom_keywords": custom_kw},
+            tool_output_summary=step1_summary,
             duration_seconds=0.01
         ))
         tools_invoked.append("csv_reader")
 
-        res = tool_registry.execute("classify_seo_keywords", file_path=file_path)
+        res = tool_registry.execute("classify_seo_keywords", file_path=file_path, custom_keywords=custom_kw)
         tools_invoked.append("classify_seo_keywords")
         tools_invoked.append("intent_classifier")
 

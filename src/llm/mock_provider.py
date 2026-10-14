@@ -63,22 +63,60 @@ class MockLLMProvider(BaseLLMProvider):
             )
 
         # 4. WF004: Product Description Generator
-        if any(kw in query for kw in ["seo content", "product description", "generate content for this product", "write product copy", "product content"]):
-            # Try to extract product details from query if provided
+        if any(kw in query for kw in ["seo content", "product description", "generate content for this product", "write product copy", "product content", "generate content", "generate seo"]):
+            params = {
+                "product_name": "Ergonomic Office Chair",
+                "category": "Office Furniture"
+            }
+            raw_text = user_request.strip()
+
+            cat_m = re.search(r"category\s*:\s*([^,\n;]+)", raw_text, re.IGNORECASE)
+            mat_m = re.search(r"material\s*:\s*([^,\n;]+)", raw_text, re.IGNORECASE)
+            col_m = re.search(r"color\s*:\s*([^,\n;]+)", raw_text, re.IGNORECASE)
+            aud_m = re.search(r"audience\s*:\s*([^,\n;]+)", raw_text, re.IGNORECASE)
+
+            if cat_m:
+                params["category"] = cat_m.group(1).strip()
+            if mat_m:
+                params["material"] = mat_m.group(1).strip()
+            if col_m:
+                params["color"] = col_m.group(1).strip()
+            if aud_m:
+                params["target_audience"] = aud_m.group(1).strip()
+
+            name_m = re.search(r"(?:product\s*:\s*|for\s+this\s+product\s*:\s*|for\s+product\s*:\s*)([^,\n;]+)", raw_text, re.IGNORECASE)
+            if name_m:
+                params["product_name"] = name_m.group(1).strip()
+            else:
+                for_m = re.search(r"(?:for|content\s+for|description\s+for)\s+(?!this\s+product\b|a\s+product\b)([^,\n;.]+)", raw_text, re.IGNORECASE)
+                if for_m:
+                    extracted = for_m.group(1).strip()
+                    extracted = re.sub(r"^(a|an|the)\s+", "", extracted, flags=re.IGNORECASE).strip()
+                    if len(extracted) > 2 and extracted.lower() not in ["this product", "product", "me", "us"]:
+                        params["product_name"] = extracted
+                        if not cat_m:
+                            lower_p = extracted.lower()
+                            if any(w in lower_p for w in ["shoe", "sneaker", "boot", "sandal", "footwear"]):
+                                params["category"] = "Footwear"
+                            elif any(w in lower_p for w in ["chair", "desk", "table", "sofa", "bed"]):
+                                params["category"] = "Furniture"
+                            elif any(w in lower_p for w in ["phone", "laptop", "monitor", "headphone", "keyboard", "mouse", "hub", "earbud"]):
+                                params["category"] = "Electronics"
+                            elif any(w in lower_p for w in ["shirt", "pant", "jacket", "dress", "hoodie", "t-shirt"]):
+                                params["category"] = "Apparel"
+                            else:
+                                params["category"] = "General Merchandise"
+
             return WorkflowSelection(
                 workflow_id="WF004",
                 workflow_name=available_workflows.get("WF004", WorkflowDefinition(workflow_id="WF004", workflow_name="Product Description Generator", trigger="", inputs="", steps_raw="", decision_logic="", expected_output="")).workflow_name,
-                confidence=0.94,
-                reasoning="Matched intent for generating structured ecommerce product descriptions and SEO metadata.",
-                extracted_params={
-                    "product_name": "Ergonomic Mesh Chair",
-                    "category": "Office Furniture"
-                }
+                confidence=0.95,
+                reasoning=f"Matched intent for generating structured ecommerce product descriptions and SEO metadata for '{params['product_name']}'.",
+                extracted_params=params
             )
 
         # 5. WF005: Customer Order Status
         if any(kw in query for kw in ["order ord-", "order status", "where is order", "track order", "tracking for"]):
-            # Extract order ID like ORD-1001 or email
             order_match = re.search(r"ord-\d+", query, re.IGNORECASE)
             email_match = re.search(r"[\w\.-]+@[\w\.-]+\.\w+", query)
             order_id = order_match.group(0).upper() if order_match else None
@@ -110,10 +148,35 @@ class MockLLMProvider(BaseLLMProvider):
 
         # 7. WF007: Marketing Campaign Brief
         if any(kw in query for kw in ["campaign brief", "marketing brief", "create a campaign", "promotion brief"]):
-            # Check if dates or goal are present
             params = {}
-            if "collection" in query:
+            raw_text = user_request.strip()
+
+            goal_m = re.search(r"(?:goal|objective)\s*:\s*([^,\n;]+)", raw_text, re.IGNORECASE)
+            if not goal_m:
+                goal_m = re.search(r"brief\s+for\s+([^,\n;]+)", raw_text, re.IGNORECASE)
+
+            dates_m = re.search(r"(?:dates?|timeline|period)\s*:\s*([^,\n;]+)", raw_text, re.IGNORECASE)
+            prod_m = re.search(r"(?:products?|collection)\s*:\s*([^,\n;]+)", raw_text, re.IGNORECASE)
+            aud_m = re.search(r"(?:audience|target)\s*:\s*([^,\n;]+)", raw_text, re.IGNORECASE)
+            promo_m = re.search(r"(?:promotion|discount|offer|promo)\s*:\s*([^,\n;]+)", raw_text, re.IGNORECASE)
+
+            if goal_m:
+                params["campaign_goal"] = goal_m.group(1).strip()
+            elif "new collection" in query:
                 params["campaign_goal"] = "Launch Spring 2026 Collection"
+
+            if dates_m:
+                params["dates"] = dates_m.group(1).strip()
+            elif "new collection" in query:
+                params["dates"] = "Nov 1 - Nov 30, 2026"
+
+            if prod_m:
+                params["product_list"] = prod_m.group(1).strip()
+            if aud_m:
+                params["target_audience"] = aud_m.group(1).strip()
+            if promo_m:
+                params["promotion"] = promo_m.group(1).strip()
+
             return WorkflowSelection(
                 workflow_id="WF007",
                 workflow_name=available_workflows.get("WF007", WorkflowDefinition(workflow_id="WF007", workflow_name="Marketing Campaign Brief", trigger="", inputs="", steps_raw="", decision_logic="", expected_output="")).workflow_name,
@@ -123,26 +186,59 @@ class MockLLMProvider(BaseLLMProvider):
             )
 
         # 8. WF008: SEO Keyword Classification
-        if any(kw in query for kw in ["classify these keywords", "seo keyword", "search intent", "classify keywords", "keyword list"]):
+        if any(kw in query for kw in ["classify these keywords", "seo keyword", "search intent", "classify keywords", "keyword list", "classify"]):
+            params = {"file_path": "data/keywords.csv"}
+            kw_match = re.search(r"(?:keywords|list)\s*:\s*(.+)$", user_request.strip(), re.IGNORECASE)
+            if kw_match:
+                raw_kws = kw_match.group(1).split(",")
+                extracted_kws = [k.strip().strip("'\"") for k in raw_kws if k.strip()]
+                if len(extracted_kws) >= 2:
+                    params["custom_keywords"] = extracted_kws
+
             return WorkflowSelection(
                 workflow_id="WF008",
                 workflow_name=available_workflows.get("WF008", WorkflowDefinition(workflow_id="WF008", workflow_name="SEO Keyword Classification", trigger="", inputs="", steps_raw="", decision_logic="", expected_output="")).workflow_name,
                 confidence=0.96,
                 reasoning="Matched intent for categorizing keyword search intent and mapping to website landing pages.",
-                extracted_params={"file_path": "data/keywords.csv"}
+                extracted_params=params
             )
 
         # 9. WF009: Employee Task Assignment
         if ("assign" in query and "task" in query) or any(kw in query for kw in ["assign to developer", "employee task", "best available developer", "assign developer", "task assignment"]):
+            known_skills = [
+                "React", "Python", "FastAPI", "TypeScript", "Docker", "PostgreSQL",
+                "Django", "Kafka", "Redis", "Kubernetes", "PyTorch", "LLMs",
+                "LangChain", "NLP", "AWS", "Terraform", "CI/CD", "Linux",
+                "Next.js", "CSS", "Tailwind", "UI/UX", "Figma", "Rust", "Solidity"
+            ]
+            detected_skills = []
+            for skill in known_skills:
+                if re.search(r"\b" + re.escape(skill) + r"\b", user_request, re.IGNORECASE):
+                    detected_skills.append(skill)
+
+            if not detected_skills:
+                if "ai" in query or "machine learning" in query:
+                    detected_skills = ["PyTorch", "LLMs"]
+                elif "devops" in query or "cloud" in query:
+                    detected_skills = ["Docker", "Kubernetes"]
+                elif "frontend" in query or "ui" in query:
+                    detected_skills = ["React", "UI/UX"]
+                elif "backend" in query:
+                    detected_skills = ["Python", "FastAPI"]
+                else:
+                    detected_skills = ["Python"]
+
+            priority = "Urgent" if any(w in query for w in ["urgent", "asap", "critical", "high priority"]) else "Medium"
+
             return WorkflowSelection(
                 workflow_id="WF009",
                 workflow_name=available_workflows.get("WF009", WorkflowDefinition(workflow_id="WF009", workflow_name="Employee Task Assignment", trigger="", inputs="", steps_raw="", decision_logic="", expected_output="")).workflow_name,
                 confidence=0.97,
-                reasoning="Matched intent for ranking and allocating an urgent task to an employee based on skills and capacity.",
+                reasoning=f"Matched intent for ranking and allocating an urgent task ({', '.join(detected_skills)}) to best available team member.",
                 extracted_params={
                     "task_description": user_request,
-                    "required_skills": ["Python"],
-                    "priority": "Urgent",
+                    "required_skills": detected_skills,
+                    "priority": priority,
                     "deadline": "2026-10-15"
                 }
             )
