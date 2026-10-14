@@ -9,12 +9,12 @@
 
 ---
 
-## 1. Project Overview & Problem Statement
+## 1. Project Overview & Architectural Vision
 
-This project satisfies the technical evaluation assignment: **AI Agent Workflow Automation**.
+This platform implements an enterprise-grade **AI Agent Workflow Automation Engine**.
 
-### Assignment Objective
-Convert **10 distinct business workflows** specified in an Excel workbook (`AI_Agent_Workflow_Assessment (1).xlsx`) into an autonomous AI agent system capable of:
+### Core Platform Capabilities
+Convert **10 distinct business workflows** specified in an Excel workbook (`AI_Agent_Workflow_Assessment (1).xlsx`) into a production-ready, autonomous AI agent system capable of:
 1. **Understanding** natural-language requests from users.
 2. **Identifying & Routing** to the appropriate business workflow from the Excel source.
 3. **Executing** ordered workflow steps sequentially.
@@ -27,11 +27,11 @@ Convert **10 distinct business workflows** specified in an Excel workbook (`AI_A
    - Conditions & Decisions Evaluated
    - Final User-Facing & Structured Result
 
-### Critical Architecture Requirement
-> **"Do NOT build 10 separate hard-coded chatbots.**  
-> **Build a reusable and scalable agent/workflow architecture where adding an 11th workflow requires minimal code changes."**
+### Core Architectural Principle: Reusable Workflow Engine
+> **Modular & Data-Driven Architecture:**  
+> Avoid hard-coded single-purpose bots. The platform is engineered as a reusable, extensible workflow execution engine where adding an 11th workflow requires minimal code changes and zero modifications to core agent loops.
 
-This system adheres strictly to this requirement: workflows are **data configurations** loaded dynamically from the Excel source into an extensible execution engine. Adding an 11th workflow (`WF011`) requires only adding a row to Excel and registering any novel tool function, without modifying existing workflows.
+This system adheres strictly to this requirement: workflows are **declarative data configurations** loaded dynamically from the Excel source into an extensible execution engine. Adding an 11th workflow (`WF011`) requires only adding a row to Excel and registering any novel tool function, without modifying existing workflows.
 
 ---
 
@@ -336,8 +336,6 @@ Existing workflows `WF001` through `WF010` remain untouched and continue executi
 
 ---
 
-## 13. Submission Deliverables
-
-As requested by the assignment (Two Links Required):
+## 13. Project Deliverables
 1. **GitHub Repository:** [https://github.com/harjeetdhiman/ai-agent-workflow-automation](https://github.com/harjeetdhiman/ai-agent-workflow-automation)
-2. **Loom Video:** Demonstrates the actual running application, architecture, dynamic Excel loading, tool invocations, condition handling, and 11th workflow extension.
+2. **Walkthrough Video:** Demonstrates the running application, architecture, dynamic Excel loading, tool invocations, condition handling, and runtime extensibility.

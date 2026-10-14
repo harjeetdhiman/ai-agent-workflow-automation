@@ -85,7 +85,7 @@ with st.sidebar:
 st.markdown('<div class="main-title">⚡ AI Agent Workflow Automation System</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-title">Natural Language Understanding • Intent Routing • Step-by-Step Execution • Deterministic Logic</div>', unsafe_allow_html=True)
 
-tab_agent, tab_registry, tab_wf011 = st.tabs(["🚀 Workflow Agent Runner", "📋 Excel Workflow Registry", "🧩 11th Workflow Extensibility"])
+tab_agent, tab_registry, tab_wf011 = st.tabs(["🚀 Workflow Agent Runner", "📋 Workflow Registry & Catalog", "🧩 Dynamic Runtime Extensibility"])
 
 # TAB 1: Agent Runner
 with tab_agent:
@@ -193,32 +193,47 @@ with tab_registry:
             st.markdown(f"**Tools Required:** `{', '.join(wf.tools_required)}`")
             st.markdown(f"**Expected Output:** {wf.expected_output}")
 
-# TAB 3: 11th Workflow Extensibility
+# TAB 3: Dynamic Runtime Extensibility
 with tab_wf011:
-    st.subheader("Demonstrating 11th Workflow Extensibility (WF011)")
+    st.subheader("Dynamic Workflow Extension (Runtime Hot-Registration)")
     st.markdown("""
-    A critical architectural requirement is:
-    > **Do NOT build 10 separate hard-coded chatbots. Build a reusable and scalable agent/workflow architecture where adding an 11th workflow requires minimal code changes.**
+    The platform is built on an **extensible, registry-driven architecture**. Instead of static, hard-coded logic, enterprise business processes are treated as declarative workflow definitions orchestrated by a unified agent engine.
 
-    Below, we dynamically register **WF011: Customer Churn Risk Alert** into the running system.
+    New business workflows can be registered and dispatched dynamically at runtime in **two declarative steps**:
+    1. **Declare Workflow Specifications**: Provide metadata (ID, trigger intent, step pipeline, decision gates) via Excel or code.
+    2. **Register Novel Domain Tools**: Decorate custom business tools using `@tool_registry.register(...)`.
+
+    Below is a live demonstration registering and executing **WF011: Customer Churn Risk Alert** without restarting the application or modifying existing workflow routines:
     """)
 
-    wf011_code = """
-# Adding WF011 requires only:
-1. Appending the definition row to the Excel sheet (or registering WorkflowDefinition):
-   - ID: WF011
-   - Name: Customer Churn Risk Alert
-   - Trigger: User asks to identify customer accounts at risk of churning
-   - Steps: Load usage data → calculate inactivity duration → check churn threshold → identify high-risk accounts → generate retention alert
-   - Logic: If days_inactive > 30 and engagement_drop > 50%, flag as high churn risk
+    wf011_code = """# Step 1: Declare the new workflow metadata (e.g. WF011: Customer Churn Risk Alert)
+wf011_def = WorkflowDefinition(
+    workflow_id="WF011",
+    workflow_name="Customer Churn Risk Alert",
+    trigger="User asks to identify customer accounts at risk of churning",
+    inputs="Customer usage metrics CSV; inactivity threshold",
+    steps=[
+        "Load usage data",
+        "Calculate inactivity duration",
+        "Check churn threshold",
+        "Identify high-risk accounts",
+        "Generate retention alert"
+    ],
+    decision_logic="If days_inactive > 30 and engagement_drop > 50%, flag account as high churn risk",
+    tools_required=["csv_reader", "calculator", "churn_analyzer"],
+    expected_output="List of high-risk customer accounts with retention recommendations"
+)
+workflow_loader._workflows["WF011"] = wf011_def
 
-2. Registering any novel tool function:
-   @tool_registry.register("churn_analyzer")
-   def analyze_churn(inactivity_threshold_days=30): ...
-    """
+# Step 2: Register novel business tool in central registry
+@tool_registry.register("churn_analyzer", description="Identifies high churn risk accounts")
+def analyze_churn(inactivity_threshold_days=30):
+    # Domain-specific calculation / API call
+    ...
+"""
     st.code(wf011_code, language="python")
 
-    demo_btn = st.button("🚀 Register & Execute WF011 (Live Extensibility Test)")
+    demo_btn = st.button("🚀 Hot-Register & Execute WF011 (Live Runtime Demo)")
     if demo_btn:
         # Register WF011 definition
         wf011_def = WorkflowDefinition(
@@ -285,5 +300,24 @@ with tab_wf011:
         workflow_engine.register_handler("WF011", exec_wf011_live)
 
         res_11 = workflow_engine.execute_request("identify customer accounts at risk of churning")
-        st.success(f"✅ Successfully executed WF011: **{res_11.selected_workflow_name}**!")
-        st.markdown(res_11.final_summary)
+        st.success(f"✅ Successfully hot-registered and executed WF011: **{res_11.selected_workflow_name}**!")
+
+        col_res11, col_trace11 = st.columns([1, 1])
+        with col_res11:
+            st.subheader("Business Output")
+            st.markdown(res_11.final_summary)
+
+        with col_trace11:
+            st.subheader("Execution Trace")
+            for s in res_11.steps_executed:
+                st.markdown(
+                    f"<div class='step-box'><b>Step {s.step_number}: {s.step_name}</b><br>"
+                    f"<small>✅ Status: {s.status}</small></div>",
+                    unsafe_allow_html=True
+                )
+            for c in res_11.conditions_evaluated:
+                st.markdown(
+                    f"<div class='condition-box'><b>🟢 {c.condition_name}</b><br>"
+                    f"<small><i>Rule: {c.rule_expression}</i><br>{c.explanation}</small></div>",
+                    unsafe_allow_html=True
+                )
