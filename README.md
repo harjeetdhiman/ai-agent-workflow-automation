@@ -197,8 +197,7 @@ d:\10workflow\
 │   ├── test_all_10_workflows.py # Tests covering all 10 workbook questions
 │   ├── test_edge_cases.py    # Missing inputs, boundary cases, escalations
 │   └── test_wf011_extension.py# Verification of 11th workflow extensibility
-└── loom/
-    └── LOOM_SCRIPT.md        # Step-by-step video presentation plan & script
+└── run_app.bat               # Windows 1-click launcher script
 ```
 
 ---
@@ -341,4 +340,4 @@ Existing workflows `WF001` through `WF010` remain untouched and continue executi
 
 As requested by the assignment (Two Links Required):
 1. **GitHub Repository:** [https://github.com/harjeetdhiman/ai-agent-workflow-automation](https://github.com/harjeetdhiman/ai-agent-workflow-automation)
-2. **Loom Video:** Demonstrates the actual running application, architecture, dynamic Excel loading, tool invocations, condition handling, and 11th workflow extension using `loom/LOOM_SCRIPT.md`.
+2. **Loom Video:** Demonstrates the actual running application, architecture, dynamic Excel loading, tool invocations, condition handling, and 11th workflow extension.
