@@ -105,6 +105,10 @@ class ExcelWorkflowLoader:
                 tools_required=tools,
                 expected_output=expected_output,
             )
+            from src.workflow_specs import get_workflow_spec
+            spec = get_workflow_spec(wf_def)
+            wf_def.executable_steps = spec.executable_steps
+            wf_def.pre_conditions = spec.pre_conditions
             self._workflows[wf_id] = wf_def
 
     def _load_test_questions_sheet(self, ws) -> None:
@@ -133,8 +137,14 @@ class ExcelWorkflowLoader:
                 )
 
     def get_workflow(self, workflow_id: str) -> Optional[WorkflowDefinition]:
-        """Returns the workflow definition for a given ID."""
-        return self._workflows.get(workflow_id)
+        """Returns the workflow definition for a given ID with attached executable step specs."""
+        wf = self._workflows.get(workflow_id)
+        if wf and not wf.executable_steps:
+            from src.workflow_specs import get_workflow_spec
+            spec = get_workflow_spec(wf)
+            wf.executable_steps = spec.executable_steps
+            wf.pre_conditions = spec.pre_conditions
+        return wf
 
     def get_all_workflows(self) -> Dict[str, WorkflowDefinition]:
         """Returns all registered workflow definitions."""

@@ -4,8 +4,27 @@ import uuid
 from datetime import datetime
 
 
+class StepDefinition(BaseModel):
+    """Declarative definition of a single executable step within a workflow pipeline."""
+    step_number: int
+    step_name: str
+    tool_name: str
+    input_mappings: Dict[str, Any] = Field(default_factory=dict, description="Maps tool arguments to context expressions")
+    output_variable: Optional[str] = Field(None, description="Key in execution context where tool output is stored")
+    summary_template: Optional[str] = Field(None, description="Format string or summary pattern for this step")
+
+
+class PreCondition(BaseModel):
+    """Declarative pre-condition or validation gate required before step execution."""
+    name: str
+    required_keys: List[str] = Field(default_factory=list)
+    rule_expression: str = ""
+    failure_status: str = Field(default="NEEDS_INPUT", description="NEEDS_INPUT or FAILED")
+    failure_message: str = ""
+
+
 class WorkflowDefinition(BaseModel):
-    """Represents a business workflow parsed dynamically from the Excel source."""
+    """Represents a business workflow parsed dynamically from the Excel source with executable step specs."""
     workflow_id: str = Field(description="Unique workflow ID, e.g. WF001")
     workflow_name: str = Field(description="Descriptive name of the workflow")
     trigger: str = Field(description="Trigger condition or user intent description")
@@ -15,6 +34,11 @@ class WorkflowDefinition(BaseModel):
     decision_logic: str = Field(description="Business logic, thresholds, or conditional rules")
     tools_required: List[str] = Field(default_factory=list, description="List of required tools")
     expected_output: str = Field(description="Expected output format or deliverable")
+    
+    # Declarative execution specifications
+    executable_steps: List[StepDefinition] = Field(default_factory=list, description="Data-driven executable steps")
+    pre_conditions: List[PreCondition] = Field(default_factory=list, description="Input validation gates")
+    spec_key: Optional[str] = Field(None, description="Key identifying the declarative execution specification")
 
 
 class WorkflowSelection(BaseModel):

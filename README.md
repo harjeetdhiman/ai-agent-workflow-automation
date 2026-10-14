@@ -276,6 +276,9 @@ python -m pytest tests/ -v
 ```
 
 ### Test Coverage Summary:
+* **`tests/test_architecture_integrity.py` (2 tests):**
+  - `test_engine_contains_zero_workflow_id_branches`: Uses Python's AST parser to guarantee that `src/engine.py` contains **ZERO** workflow-specific branches (`if wf_id == "WF001"`), zero dedicated handler functions, and enforces dynamic `tool_registry.execute()` invocation.
+  - `test_generic_execution_of_novel_dynamic_workflow`: Tests a completely novel dynamic workflow (WF999: Service Health Diagnostic) executing dynamically through the universal engine.
 * **`tests/test_all_10_workflows.py` (11 tests):**
   - `test_excel_loader_integrity`: Verifies dynamic loading of all 10 workflows and test questions.
   - `test_wf001` through `test_wf010`: Verifies execution, correct step sequences, tool invocations, and output schemas for each workbook test question.
@@ -289,9 +292,9 @@ python -m pytest tests/ -v
   - Inventory threshold boundary (current stock == threshold excluded).
   - Price variance boundary (exact 10.0% variance).
 * **`tests/test_wf011_extension.py` (1 test):**
-  - Live registration and execution of an 11th workflow without regressions.
+  - Live registration and execution of an 11th workflow (WF011: Customer Churn Risk Alert) without regressions or custom engine handlers.
 
-**Result: 20 passed in ~1.26 seconds.**
+**Result: 22 passed in ~1.35 seconds.**
 
 ---
 
