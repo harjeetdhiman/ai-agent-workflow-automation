@@ -211,7 +211,8 @@ d:\10workflow\
 
 ### Step 1: Clone or Navigate to Repository
 ```bash
-cd d:\10workflow
+git clone https://github.com/harjeetdhiman/ai-agent-workflow-automation.git
+cd ai-agent-workflow-automation
 ```
 
 ### Step 2: Create and Activate a Virtual Environment
@@ -338,6 +339,6 @@ Existing workflows `WF001` through `WF010` remain untouched and continue executi
 
 ## 13. Submission Deliverables
 
-As requested by the assignment:
-1. **GitHub Repository:** Contains complete source code, Excel workbook, synthetic datasets, automated tests, setup instructions, and documentation.
+As requested by the assignment (Two Links Required):
+1. **GitHub Repository:** [https://github.com/harjeetdhiman/ai-agent-workflow-automation](https://github.com/harjeetdhiman/ai-agent-workflow-automation)
 2. **Loom Video:** Demonstrates the actual running application, architecture, dynamic Excel loading, tool invocations, condition handling, and 11th workflow extension using `loom/LOOM_SCRIPT.md`.
