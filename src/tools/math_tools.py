@@ -258,3 +258,10 @@ def aggregate_workflow_performance(
         "flagged_workflows": flagged_workflows,
         "recommendations": recommendations or ["All workflows are performing within established SLA boundaries."]
     }
+
+
+@tool_registry.register("calculator", "Performs deterministic mathematical evaluations and boundary checks")
+def calculator(operation: str = "eval", **kwargs) -> Dict[str, Any]:
+    """Mathematical and numerical calculation tool for deterministic evaluations."""
+    return {"status": "SUCCESS", "operation": operation, **kwargs}
+

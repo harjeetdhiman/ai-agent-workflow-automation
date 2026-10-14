@@ -264,41 +264,7 @@ def analyze_churn(inactivity_threshold_days=30):
                 ]
             }
 
-        def exec_wf011_live(wf_def, params, user_request, steps_executed, conditions_evaluated, tools_invoked):
-            from src.schemas import StepResult, ConditionEvaluation
-            res = tool_registry.execute("churn_analyzer_live" if "churn_analyzer_live" in tool_registry._tools else "churn_analyzer")
-            tools_invoked.append("churn_analyzer")
-            tools_invoked.append("calculator")
-
-            for idx, s in enumerate(wf_def.steps, start=1):
-                steps_executed.append(StepResult(
-                    step_number=idx,
-                    step_name=s,
-                    status="SUCCESS",
-                    duration_seconds=0.01
-                ))
-
-            conditions_evaluated.append(ConditionEvaluation(
-                condition_name="Churn Risk Gate",
-                rule_expression=wf_def.decision_logic,
-                outcome=True,
-                explanation="2 accounts exceeded the 30-day inactivity and 50% drop threshold."
-            ))
-
-            accounts = res.get("high_risk_accounts", [])
-            summary = (
-                "### Customer Churn Risk Alert\n"
-                f"**High-Risk Accounts Identified:** {len(accounts)}\n\n"
-                "| Account ID | Company Name | Inactive Days | Engagement Drop |\n"
-                "| :--- | :--- | :--- | :--- |\n"
-            )
-            for a in accounts:
-                summary += f"| {a['account_id']} | {a['name']} | {a['days_inactive']} days | {a.get('drop_pct', 60)}% |\n"
-
-            return {"status": "SUCCESS", "data": res, "summary": summary}
-
-        workflow_engine.register_handler("WF011", exec_wf011_live)
-
+        # Zero custom handler needed! The universal declarative step engine executes WF011 automatically!
         res_11 = workflow_engine.execute_request("identify customer accounts at risk of churning")
         st.success(f"✅ Successfully hot-registered and executed WF011: **{res_11.selected_workflow_name}**!")
 

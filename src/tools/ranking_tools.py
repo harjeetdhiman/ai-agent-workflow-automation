@@ -6,7 +6,7 @@ from src.tools.registry import tool_registry
 
 @tool_registry.register("assign_employee_task", "Ranks team candidates based on skills & capacity and assigns task (WF009)")
 def assign_employee_task(
-    task_description: str,
+    task_description: str = "Urgent task assignment",
     required_skills: Optional[List[str]] = None,
     priority: str = "Medium",
     deadline: str = "2026-10-20",

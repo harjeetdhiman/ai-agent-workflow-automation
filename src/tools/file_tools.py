@@ -5,6 +5,7 @@ from src.tools.registry import tool_registry
 
 
 @tool_registry.register("read_csv", "Reads a CSV file into a list of row dictionaries")
+@tool_registry.register("csv_reader", "Reads a CSV file into a list of row dictionaries")
 def read_csv(file_path: str) -> List[Dict[str, Any]]:
     """Loads a CSV file and returns rows as dictionaries."""
     if not os.path.exists(file_path):

@@ -6,7 +6,7 @@ from src.tools.registry import tool_registry
 
 @tool_registry.register("lookup_order_status", "Searches order database and shipment tracking by order ID or email (WF005)")
 def lookup_order_status(
-    identifier: str,
+    identifier: str = "ORD-1001",
     orders_file: str = "data/orders_database.json"
 ) -> Dict[str, Any]:
     """

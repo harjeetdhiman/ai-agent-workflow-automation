@@ -297,10 +297,10 @@ python -m pytest tests/ -v
 
 ## 11. How to Add an 11th Workflow
 
-Adding an 11th workflow (e.g., `WF011: Customer Churn Risk Alert`) requires **minimal code changes** because the architecture is declarative and registry-driven:
+Adding an 11th workflow (e.g., `WF011: Customer Churn Risk Alert`) requires **zero custom execution code** because the engine is truly universal and declarative:
 
 ```python
-# Step 1: Add row to Excel 'Workflows' sheet (or define WorkflowDefinition in code)
+# Step 1: Add row to Excel 'Workflows' sheet (or register WorkflowDefinition in code)
 wf011 = WorkflowDefinition(
     workflow_id="WF011",
     workflow_name="Customer Churn Risk Alert",
@@ -314,15 +314,28 @@ wf011 = WorkflowDefinition(
 )
 workflow_loader._workflows["WF011"] = wf011
 
-# Step 2: Register any novel tool function needed (if existing tools don't already cover it)
-@tool_registry.register("churn_analyzer")
+# Step 2: Register any novel domain tool function (if not already existing in registry)
+@tool_registry.register("churn_analyzer", description="Analyzes user activity to flag high churn risk accounts")
 def analyze_churn(inactivity_threshold_days=30):
-    return {"high_risk_accounts": [...]}
+    # Domain-specific calculation / API integration
+    sample_accounts = [
+        {"account_id": "ACC-801", "name": "Acme Logistics", "days_inactive": 42, "engagement_drop_pct": 65, "risk": "HIGH"},
+        {"account_id": "ACC-803", "name": "Nexus Fintech", "days_inactive": 35, "engagement_drop_pct": 55, "risk": "HIGH"}
+    ]
+    return {
+        "high_risk_count": len(sample_accounts),
+        "high_risk_accounts": sample_accounts
+    }
 
-# Step 3: Register workflow handler in the engine
-workflow_engine.register_handler("WF011", exec_wf011_handler)
+# Step 3: Execute request directly!
+# NO custom handler needed! The universal declarative step engine executes all 5 steps,
+# invokes the registered churn_analyzer tool, and evaluates decision rules automatically.
+res = workflow_engine.execute_request("identify customer accounts at risk of churning")
+assert res.status == "SUCCESS"
+assert len(res.steps_executed) == 5
+assert "churn_analyzer" in res.tools_invoked
 ```
-Existing workflows `WF001` through `WF010` remain untouched and continue executing normally.
+Existing workflows `WF001` through `WF010` remain untouched and continue executing normally through the same declarative pipeline.
 
 ---
 
