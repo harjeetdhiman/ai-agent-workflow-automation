@@ -47,7 +47,7 @@ class OpenAIProvider(BaseLLMProvider):
             f"{workflows_text}\n\n"
             "Return a strictly valid JSON object with the following fields:\n"
             "{\n"
-            '  "workflow_id": "WF001" or null if no match or unsupported,\n'
+            '  "workflow_id": "<workflow_id>" or null if no match or unsupported,\n'
             '  "workflow_name": "Exact Name" or null,\n'
             '  "confidence": float between 0.0 and 1.0,\n'
             '  "reasoning": "Clear explanation of match",\n'

@@ -1,13 +1,14 @@
 import os
+import json
 from typing import Dict, List, Optional
 import openpyxl
-from src.schemas import WorkflowDefinition, TestQuestion
+from src.schemas import WorkflowDefinition, TestQuestion, StepDefinition
 from src.config import EXCEL_WORKFLOW_FILE
 
 
 class ExcelWorkflowLoader:
     """
-    Authoritative parser for loading workflow definitions and evaluation questions
+    Authoritative parser for loading workflow definitions, steps, and evaluation questions
     directly from the company's Excel workbook.
     """
 
@@ -35,7 +36,7 @@ class ExcelWorkflowLoader:
         self.load()
 
     def load(self) -> None:
-        """Loads and validates both worksheets from the Excel file."""
+        """Loads and validates worksheets from the Excel file."""
         if not os.path.exists(self.excel_path):
             raise FileNotFoundError(
                 f"Excel workflow file not found at '{self.excel_path}'. "
@@ -49,6 +50,12 @@ class ExcelWorkflowLoader:
 
         self._load_workflows_sheet(wb["Workflows"])
 
+        if "Workflow_Steps" in wb.sheetnames:
+            self._load_workflow_steps_sheet(wb["Workflow_Steps"])
+
+        # For workflows without explicit step rows, synthesize them dynamically from the Steps column
+        self._synthesize_missing_steps()
+
         if "Test_Questions" in wb.sheetnames:
             self._load_test_questions_sheet(wb["Test_Questions"])
 
@@ -58,23 +65,20 @@ class ExcelWorkflowLoader:
             raise ValueError("The 'Workflows' worksheet is empty or missing data rows.")
 
         headers = [str(cell).strip() if cell is not None else "" for cell in rows[0]]
-
-        # Verify required columns exist
         missing_cols = [col for col in self.REQUIRED_WORKFLOW_COLUMNS if col not in headers]
         if missing_cols:
             raise ValueError(f"The 'Workflows' sheet is missing required columns: {missing_cols}")
 
         col_idx = {col: headers.index(col) for col in self.REQUIRED_WORKFLOW_COLUMNS}
-
         self._workflows.clear()
+
         for row_num, row in enumerate(rows[1:], start=2):
-            # Skip completely empty rows
             if not any(row):
                 continue
 
             wf_id = str(row[col_idx["Workflow_ID"]]).strip() if row[col_idx["Workflow_ID"]] else ""
             if not wf_id:
-                raise ValueError(f"Row {row_num} in 'Workflows' sheet has an empty 'Workflow_ID'.")
+                continue
 
             wf_name = str(row[col_idx["Workflow_Name"]]).strip() if row[col_idx["Workflow_Name"]] else ""
             trigger = str(row[col_idx["Trigger"]]).strip() if row[col_idx["Trigger"]] else ""
@@ -84,14 +88,12 @@ class ExcelWorkflowLoader:
             tools_raw = str(row[col_idx["Tools_Required"]]).strip() if row[col_idx["Tools_Required"]] else ""
             expected_output = str(row[col_idx["Expected_Output"]]).strip() if row[col_idx["Expected_Output"]] else ""
 
-            # Parse steps (split by arrow character '→' or '->')
             arrow_sep = "→" if "→" in steps_raw else ("->" if "->" in steps_raw else None)
             if arrow_sep:
                 steps = [s.strip() for s in steps_raw.split(arrow_sep) if s.strip()]
             else:
                 steps = [steps_raw] if steps_raw else []
 
-            # Parse tools required (split by semicolon or comma)
             tools = [t.strip() for t in tools_raw.replace(";", ",").split(",") if t.strip()]
 
             wf_def = WorkflowDefinition(
@@ -104,12 +106,94 @@ class ExcelWorkflowLoader:
                 decision_logic=decision_logic,
                 tools_required=tools,
                 expected_output=expected_output,
+                executable_steps=[],
             )
-            from src.workflow_specs import get_workflow_spec
-            spec = get_workflow_spec(wf_def)
-            wf_def.executable_steps = spec.executable_steps
-            wf_def.pre_conditions = spec.pre_conditions
             self._workflows[wf_id] = wf_def
+
+    def _load_workflow_steps_sheet(self, ws) -> None:
+        """Loads declarative step definitions from the Workflow_Steps worksheet."""
+        rows = list(ws.iter_rows(values_only=True))
+        if not rows or len(rows) < 2:
+            return
+
+        headers = [str(cell).strip() if cell is not None else "" for cell in rows[0]]
+        h_map = {h.lower(): idx for idx, h in enumerate(headers)}
+
+        for row in rows[1:]:
+            if not any(row):
+                continue
+            wf_id_idx = h_map.get("workflow_id", 0)
+            wf_id = str(row[wf_id_idx]).strip() if row[wf_id_idx] else ""
+            if not wf_id or wf_id not in self._workflows:
+                continue
+
+            order_idx = h_map.get("step_order", 1)
+            name_idx = h_map.get("step_name", 2)
+            tool_idx = h_map.get("tool_name", 3)
+            params_idx = h_map.get("params", 4)
+            source_idx = h_map.get("input_source", 5)
+            cond_idx = h_map.get("condition", 6)
+            err_idx = h_map.get("on_error", 7)
+
+            try:
+                step_order = int(row[order_idx]) if row[order_idx] is not None else len(self._workflows[wf_id].executable_steps) + 1
+            except (ValueError, TypeError):
+                step_order = len(self._workflows[wf_id].executable_steps) + 1
+
+            step_name = str(row[name_idx]).strip() if row[name_idx] else f"Step {step_order}"
+            tool_name = str(row[tool_idx]).strip() if row[tool_idx] else "llm_generate"
+
+            raw_params = row[params_idx] if len(row) > params_idx else "{}"
+            params = {}
+            if raw_params:
+                if isinstance(raw_params, dict):
+                    params = raw_params
+                elif isinstance(raw_params, str) and raw_params.strip():
+                    try:
+                        params = json.loads(raw_params)
+                    except json.JSONDecodeError:
+                        params = {"raw_params": raw_params}
+
+            input_source = str(row[source_idx]).strip() if len(row) > source_idx and row[source_idx] else None
+            cond_val = str(row[cond_idx]).strip() if len(row) > cond_idx and row[cond_idx] else None
+            condition = cond_val if cond_val and cond_val.lower() != "none" else None
+            on_error = str(row[err_idx]).strip() if len(row) > err_idx and row[err_idx] else "continue"
+
+            step_def = StepDefinition(
+                step_number=step_order,
+                step_name=step_name,
+                tool_name=tool_name,
+                params=params,
+                input_source=input_source,
+                condition=condition,
+                on_error=on_error,
+                output_variable=f"step_{step_order}.output",
+                summary_template=f"Executed {step_name} via {tool_name}"
+            )
+            self._workflows[wf_id].executable_steps.append(step_def)
+
+    def _synthesize_missing_steps(self) -> None:
+        """Synthesizes step definitions dynamically for workflows missing in the Workflow_Steps sheet."""
+        for wf_id, wf in self._workflows.items():
+            if not wf.executable_steps and wf.steps:
+                synthesized = []
+                for idx, step_name in enumerate(wf.steps, start=1):
+                    tool = wf.tools_required[idx - 1] if idx <= len(wf.tools_required) else (wf.tools_required[-1] if wf.tools_required else "llm_generate")
+                    source = f"step_{idx-1}.output" if idx > 1 else "params"
+                    synthesized.append(
+                        StepDefinition(
+                            step_number=idx,
+                            step_name=step_name,
+                            tool_name=tool,
+                            params={},
+                            input_source=source,
+                            condition=None,
+                            on_error="continue",
+                            output_variable=f"step_{idx}.output",
+                            summary_template=f"Executed {step_name} via {tool}"
+                        )
+                    )
+                wf.executable_steps = synthesized
 
     def _load_test_questions_sheet(self, ws) -> None:
         rows = list(ws.iter_rows(values_only=True))
@@ -118,8 +202,8 @@ class ExcelWorkflowLoader:
 
         headers = [str(cell).strip() if cell is not None else "" for cell in rows[0]]
         col_idx = {col: headers.index(col) for col in self.REQUIRED_QUESTION_COLUMNS if col in headers}
-
         self._test_questions.clear()
+
         for row in rows[1:]:
             if not any(row):
                 continue
@@ -135,25 +219,21 @@ class ExcelWorkflowLoader:
                         what_to_check=check
                     )
                 )
+                if wf_id in self._workflows:
+                    self._workflows[wf_id].test_examples.append(test_req)
 
     def get_workflow(self, workflow_id: str) -> Optional[WorkflowDefinition]:
-        """Returns the workflow definition for a given ID with attached executable step specs."""
         wf = self._workflows.get(workflow_id)
-        if wf and not wf.executable_steps:
-            from src.workflow_specs import get_workflow_spec
-            spec = get_workflow_spec(wf)
-            wf.executable_steps = spec.executable_steps
-            wf.pre_conditions = spec.pre_conditions
+        if wf and not wf.executable_steps and wf.steps:
+            self._synthesize_missing_steps()
         return wf
 
     def get_all_workflows(self) -> Dict[str, WorkflowDefinition]:
-        """Returns all registered workflow definitions."""
         return dict(self._workflows)
 
     def get_test_questions(self) -> List[TestQuestion]:
-        """Returns all test questions loaded from the Excel file."""
         return list(self._test_questions)
 
 
-# Global singleton instance for easy import across modules
+# Global singleton instance
 workflow_loader = ExcelWorkflowLoader()
