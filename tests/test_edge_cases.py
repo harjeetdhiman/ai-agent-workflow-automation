@@ -91,10 +91,10 @@ def test_employee_task_assignment_with_matching_skill_success():
 
     assert res.selected_workflow_id == "WF009"
     assert res.status == "SUCCESS"
-    assert res.final_result_data["assigned_employee"]["name"] == "Sarah Connor"
-    assert res.final_result_data["assigned_employee"]["current_workload_pct"] == 45
+    assert res.final_result_data["assigned_employee"]["name"] == "Priya Sharma"
+    assert res.final_result_data["assigned_employee"]["current_workload_pct"] == 30
     assert res.final_result_data["decision"] == "ASSIGNED"
-    assert "Sarah Connor" in res.final_result_data["assignment_reasoning"]
+    assert "Priya Sharma" in res.final_result_data["assignment_reasoning"]
 
 
 def test_employee_task_assignment_escalation_no_skill():

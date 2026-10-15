@@ -426,7 +426,8 @@ class WorkflowEngine:
             if "clean_rows_count" in output and "invalid_rows_count" in output:
                 return f"Audited feed: {output['clean_rows_count']} clean rows, {output['invalid_rows_count']} invalid rows flagged."
             if "overdue_count" in output:
-                return f"Found {output['overdue_count']} overdue invoices totaling ${output.get('total_overdue_amount', 0):,.2f}."
+                tot = output.get("total_overdue") if output.get("total_overdue") is not None else output.get("total_overdue_amount", 0)
+                return f"Found {output['overdue_count']} overdue invoices totaling ${float(tot):,.2f}."
             if "order_id" in output and output.get("found"):
                 carrier = output.get("shipment_details", {}).get("carrier", "Carrier")
                 return f"Retrieved order {output['order_id']} (Status: {output.get('order_status', 'Unknown')}, Carrier: {carrier})."

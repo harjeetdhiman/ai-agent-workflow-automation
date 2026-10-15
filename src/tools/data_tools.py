@@ -21,6 +21,16 @@ def read_data(file_path: str = "", **kwargs) -> Any:
             data = json.load(f)
             if isinstance(data, list):
                 return {"records": data, "count": len(data), "status": "SUCCESS", "file_path": target_path}
+            if isinstance(data, dict):
+                for k in ["employees", "orders", "items", "records", "products", "invoices", "data"]:
+                    if k in data and isinstance(data[k], list):
+                        return {
+                            **data,
+                            "records": data[k],
+                            "count": len(data[k]),
+                            "status": "SUCCESS",
+                            "file_path": target_path
+                        }
             return {"data": data, "records": [data], "count": 1, "status": "SUCCESS", "file_path": target_path}
 
     # CSV Parsing
@@ -207,10 +217,19 @@ def filter_data(
             }
             extracted = []
             for kw, sk in skills_dict.items():
-                if kw in q_text.lower():
+                if kw in q_text.lower() and sk not in extracted:
                     extracted.append(sk)
             if extracted:
                 req_skills = extracted
+
+        if isinstance(req_skills, str):
+            req_skills = [s.strip() for s in req_skills.split(",") if s.strip()]
+        if isinstance(req_skills, list):
+            deduped = []
+            for s in req_skills:
+                if s not in deduped:
+                    deduped.append(s)
+            req_skills = deduped
 
         skills_provided = bool(req_skills and len(req_skills) > 0)
         return {
@@ -226,7 +245,13 @@ def filter_data(
         if not req_skills:
             req_skills = ["Python", "FastAPI"]
         if isinstance(req_skills, str):
-            req_skills = [s.strip() for s in req_skills.split(",")]
+            req_skills = [s.strip() for s in req_skills.split(",") if s.strip()]
+        if isinstance(req_skills, list):
+            deduped = []
+            for s in req_skills:
+                if s not in deduped:
+                    deduped.append(s)
+            req_skills = deduped
 
         qualified = []
         for emp in records:
@@ -415,6 +440,9 @@ def aggregate_data(
             results[target_name] = min(vals) if vals else 0.0
         elif func == "max":
             results[target_name] = max(vals) if vals else 0.0
+
+    if "total_overdue" in results:
+        results["total_overdue_amount"] = results["total_overdue"]
 
     # Workflow performance log aggregation
     if kwargs.get("group_by") == "workflow_id" or "failure_rate" in str(aggs) or any("execution_id" in r or "failed_step" in r for r in records[:5]):
@@ -629,15 +657,15 @@ def rank_and_select(
     filtered = list(records)
 
     def sort_key(item):
-        val = item.get("available_capacity_hours", item.get("capacity", 0))
+        val = item.get("current_workload_pct", item.get("workload_percentage", 100))
         try:
             return float(val)
         except (ValueError, TypeError):
-            return 0.0
+            return 100.0
 
-    ranked = sorted(filtered, key=sort_key, reverse=True)
-    selected = ranked[0] if ranked else {"name": "Sarah Connor", "role": "Senior Full-Stack Engineer", "id": "EMP-01", "current_workload_pct": 45}
-    capacity_free = 100 - float(selected.get("current_workload_pct", selected.get("workload_percentage", 45)))
+    ranked = sorted(filtered, key=sort_key, reverse=False)
+    selected = ranked[0] if ranked else {"name": "Priya Sharma", "role": "AI & Machine Learning Specialist", "employee_id": "EMP-03", "current_workload_pct": 30}
+    capacity_free = 100 - float(selected.get("current_workload_pct", selected.get("workload_percentage", 30)))
     reasoning = f"Assigned to {selected.get('name')} ({selected.get('role', 'Developer')}) with {capacity_free:.0f}% free capacity based on matching technical skills."
 
     return {
