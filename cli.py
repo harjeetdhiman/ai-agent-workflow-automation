@@ -24,7 +24,7 @@ def print_execution_result(res):
     if res.steps_executed:
         for s in res.steps_executed:
             badge = "[OK]" if s.status == "SUCCESS" else f"[{s.status}]"
-            tool_info = f" (Tool: {s.tool_name})" if s.tool_name else ""
+            tool_info = f" (Tool: {s.tool_name} | executed_by: {s.executed_by})" if s.tool_name else ""
             print(f"  {s.step_number}. {badge} {s.step_name}{tool_info}")
             if s.tool_output_summary:
                 print(f"     -> {s.tool_output_summary}")

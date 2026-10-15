@@ -1,67 +1,81 @@
-from src.schemas import WorkflowDefinition
-from src.loader import workflow_loader
-from src.engine import workflow_engine
-from src.tools.registry import tool_registry
+import os
+import sys
+import shutil
+import subprocess
+import tempfile
+import openpyxl
+import json
 
 
 def test_add_11th_workflow_with_minimal_code():
     """
     Demonstrates architectural extensibility:
-    Adding an 11th workflow (WF011: Customer Churn Risk Alert)
-    requires ONLY registering its declarative definition and domain tool,
-    with ZERO custom handler code and ZERO changes to the engine or existing workflows.
+    Copies repo to a fresh temp directory, edits ONLY the .xlsx via openpyxl
+    to append a new workflow, verifies via 'git diff --stat' that ZERO python/code files were modified,
+    and runs the standard CLI entry point (python cli.py --query "...").
     """
-    # 1. Register WF011 Definition (simulating appending a row in Excel)
-    wf011_def = WorkflowDefinition(
-        workflow_id="WF011",
-        workflow_name="Customer Churn Risk Alert",
-        trigger="User asks to identify customer accounts at risk of churning",
-        inputs="Customer usage metrics CSV; inactivity threshold",
-        steps_raw="Load usage data → calculate inactivity duration → check churn threshold → identify high-risk accounts → generate retention alert",
-        steps=[
-            "Load usage data",
-            "Calculate inactivity duration",
-            "Check churn threshold",
-            "Identify high-risk accounts",
-            "Generate retention alert"
-        ],
-        decision_logic="If days_inactive > 30 and engagement_drop > 50%, flag account as high churn risk",
-        tools_required=["csv_reader", "calculator", "churn_analyzer"],
-        expected_output="List of high-risk customer accounts with retention recommendations"
-    )
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
-    # Add to active registry
-    workflow_loader._workflows["WF011"] = wf011_def
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        target_dir = os.path.join(tmp_dir, "repo_copy")
+        os.makedirs(target_dir, exist_ok=True)
+        shutil.copy2(os.path.join(base_dir, "cli.py"), os.path.join(target_dir, "cli.py"))
+        shutil.copytree(os.path.join(base_dir, "src"), os.path.join(target_dir, "src"), ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        shutil.copytree(os.path.join(base_dir, "data"), os.path.join(target_dir, "data"))
 
-    # 2. Register novel domain tool required (churn_analyzer)
-    @tool_registry.register("churn_analyzer", "Analyzes user activity to flag high churn risk accounts (WF011)")
-    def analyze_churn(inactivity_threshold_days: int = 30):
-        # Sample synthetic calculation
-        sample_accounts = [
-            {"account_id": "ACC-801", "name": "Acme Logistics", "days_inactive": 42, "engagement_drop_pct": 65, "risk": "HIGH"},
-            {"account_id": "ACC-802", "name": "Global Retailers", "days_inactive": 12, "engagement_drop_pct": 10, "risk": "LOW"},
-            {"account_id": "ACC-803", "name": "Nexus Fintech", "days_inactive": 35, "engagement_drop_pct": 55, "risk": "HIGH"}
-        ]
-        high_risk = [a for a in sample_accounts if a["days_inactive"] > inactivity_threshold_days and a["engagement_drop_pct"] > 50]
-        return {
-            "total_accounts_scanned": len(sample_accounts),
-            "high_risk_count": len(high_risk),
-            "high_risk_accounts": high_risk
-        }
+        # 1. Initialize fresh git repo to track diffs
+        subprocess.run(["git", "init"], cwd=target_dir, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "audit@company.com"], cwd=target_dir, check=True)
+        subprocess.run(["git", "config", "user.name", "Auditor"], cwd=target_dir, check=True)
+        subprocess.run(["git", "add", "-A"], cwd=target_dir, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "baseline"], cwd=target_dir, check=True, capture_output=True)
 
-    # 3. Execute request for the 11th workflow WITHOUT any custom handler code!
-    # The universal declarative step engine executes all 5 steps and evaluates decision rules automatically!
-    test_query = "identify customer accounts at risk of churning"
-    res = workflow_engine.execute_request(test_query)
+        # 2. Edit ONLY the Excel file via openpyxl (adding a novel WF013 workflow)
+        excel_path = os.path.join(target_dir, "data", "AI_Agent_Workflow_Assessment (1).xlsx")
+        wb = openpyxl.load_workbook(excel_path)
 
-    assert res.selected_workflow_id == "WF011"
-    assert res.selected_workflow_name == "Customer Churn Risk Alert"
-    assert res.status == "SUCCESS"
-    assert len(res.steps_executed) == 5
-    assert "churn_analyzer" in res.tools_invoked
-    assert res.final_result_data["high_risk_count"] == 2
+        ws_wf = wb["Workflows"]
+        ws_wf.append([
+            "WF013",
+            "Customer Retention Discount Review",
+            "User asks to evaluate customer account discount and retention eligibility",
+            "Customer usage data, account lifetime",
+            "Load account data -> Filter high-value accounts -> Calculate eligible discount -> Generate retention offer",
+            "If account lifetime > 24 months, grant 20% loyalty discount",
+            "read_data, filter_data, calculate_metrics, llm_generate",
+            "Customer discount offer details and retention terms"
+        ])
 
-    # 4. Verify existing 10 workflows still work seamlessly without regressions
-    res_wf001 = workflow_engine.execute_request("Which products need restocking?")
-    assert res_wf001.selected_workflow_id == "WF001"
-    assert res_wf001.status == "SUCCESS"
+        ws_steps = wb["Workflow_Steps"]
+        ws_steps.append(["WF013", 1, "Load customer accounts", "read_data", json.dumps({"file_path": "data/employees.json"}), "file:data/employees.json", None, "continue", "stop", "stop"])
+        ws_steps.append(["WF013", 2, "Filter active accounts", "filter_data", json.dumps({"column": "active_tasks", "operator": ">=", "value": 1}), "step_1.output", None, "continue", "continue", "continue"])
+        ws_steps.append(["WF013", 3, "Generate retention offer", "llm_generate", json.dumps({"template": "Retention Offer"}), "step_2.output", None, "continue", "continue", "continue"])
+
+        wb.save(excel_path)
+
+        # 3. Verify git diff --stat: PROVES ONLY THE EXCEL FILE CHANGED (zero python/code files touched!)
+        diff_res = subprocess.run(["git", "diff", "--stat"], cwd=target_dir, capture_output=True, text=True, check=True)
+        print("\n=== GIT DIFF --STAT IN TEMP REPO PROVING ONLY EXCEL CHANGED ===")
+        print(diff_res.stdout)
+        assert "AI_Agent_Workflow_Assessment (1).xlsx" in diff_res.stdout
+        assert ".py" not in diff_res.stdout, "Violation: Code files were modified when adding workflow!"
+
+        # 4. Run through normal CLI entry point
+        query = "evaluate customer account discount and retention eligibility"
+        cli_res = subprocess.run(
+            [sys.executable, "cli.py", "--query", query],
+            cwd=target_dir,
+            capture_output=True,
+            text=True
+        )
+
+        output = cli_res.stdout
+        print("\n=== CLI EXECUTION OUTPUT FOR NOVEL EXCEL-ONLY WORKFLOW ===")
+        print(output)
+
+        assert cli_res.returncode == 0
+        assert "Selected Workflow:     WF013 - Customer Retention Discount Review" in output
+        assert "Execution Status:      SUCCESS" in output
+        assert "1. [OK] Load customer accounts" in output
+        assert "2. [OK] Filter active accounts" in output
+        assert "3. [OK] Generate retention offer" in output

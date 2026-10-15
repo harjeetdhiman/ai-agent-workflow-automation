@@ -1,0 +1,16 @@
+[
+  {
+    "contract_id": "CNT-501",
+    "vendor": "Acme Global Solutions",
+    "clause_text": "Vendor liability shall be uncapped for indirect damages and consequential losses.",
+    "risk_level": "CRITICAL",
+    "annual_value": 150000.00
+  },
+  {
+    "contract_id": "CNT-502",
+    "vendor": "Pacific Cloud Services",
+    "clause_text": "Standard mutual indemnification capped at 12 months fees paid.",
+    "risk_level": "LOW",
+    "annual_value": 45000.00
+  }
+]

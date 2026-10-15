@@ -176,11 +176,18 @@ class MockLLMProvider(BaseLLMProvider):
             params["id"] = id_m.group(1)
             params["order_id"] = id_m.group(1)
 
-        # Defaults for campaign brief queries
-        if any(w in query for w in ["campaign", "brief", "collection"]):
-            params.setdefault("campaign_goal", "Promote new collection launch")
-            params.setdefault("dates", "Q4 2026")
-            params.setdefault("target_audience", "Retail consumers")
+        # Campaign brief entity extraction (goal and dates)
+        goal_m = re.search(r"(?:goal|objective|target)(?:\s*(?:is|of|:|=)\s*|\s+)([^,.;\n]+)", raw_text, re.IGNORECASE)
+        if goal_m:
+            params["campaign_goal"] = goal_m.group(1).strip()
+
+        date_m = re.search(r"(?:dates?|timeline|schedule|period|duration)(?:\s*(?:is|of|:|=)\s*|\s+)([^,.;\n]+)", raw_text, re.IGNORECASE)
+        if date_m:
+            params["dates"] = date_m.group(1).strip()
+        else:
+            range_m = re.search(r"\b(?:from\s+)?([A-Za-z]+\s+\d{1,2}(?:\s*-\s*[A-Za-z]+\s+\d{1,2})?(?:,?\s*\d{4})?|Q[1-4]\s*\d{4})\b", raw_text, re.IGNORECASE)
+            if range_m:
+                params["dates"] = range_m.group(0).strip()
 
         # Emails
         email_m = re.search(r"\b([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})\b", raw_text)

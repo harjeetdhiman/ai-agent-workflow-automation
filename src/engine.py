@@ -97,12 +97,37 @@ class WorkflowEngine:
             )
             self._save_execution_log(result)
             self._print_execution_trace(result)
-            return result
+        return self.execute_workflow(
+            wf_def=wf_def,
+            user_request=user_request,
+            override_params=override_params,
+            selection=selection
+        )
+
+    def execute_workflow(
+        self,
+        wf_def: WorkflowDefinition,
+        user_request: str = "",
+        override_params: Optional[Dict[str, Any]] = None,
+        selection: Optional[WorkflowSelection] = None
+    ) -> WorkflowExecutionResult:
+        """Executes a parsed WorkflowDefinition directly through the common generic step pipeline."""
+        start_time = time.time()
+        exec_id = str(uuid.uuid4())[:8]
+
+        if selection is None:
+            selection = WorkflowSelection(
+                workflow_id=wf_def.workflow_id,
+                workflow_name=wf_def.workflow_name,
+                confidence=1.0,
+                reasoning="Direct workflow invocation"
+            )
 
         # Merge extracted params with runtime overrides
-        params = dict(selection.extracted_params)
+        params = dict(selection.extracted_params or {})
         if override_params:
             params.update(override_params)
+        params.setdefault("user_request", user_request)
 
         context = ExecutionContext(user_request=user_request, params=params)
 
@@ -118,39 +143,6 @@ class WorkflowEngine:
             step_num = step.step_number
             step_name = step.step_name
             tool_name = step.tool_name
-
-            # Pre-step condition check
-            if step.condition:
-                passed, reason = safe_evaluator.evaluate_condition(step.condition, context.state)
-                branch = "execute" if passed else "skip"
-                conditions_evaluated.append(ConditionEvaluation(
-                    condition_name=f"Step {step_num} Gate",
-                    rule_expression=step.condition,
-                    outcome=passed,
-                    explanation=reason,
-                    branch_taken=branch
-                ))
-                if not passed:
-                    if step.on_error == "stop":
-                        status = "FAILED"
-                        err_msg = f"Step {step_num} condition failed: {step.condition}"
-                        break
-                    elif step.on_error == "escalate":
-                        status = "NEEDS_INPUT"
-                        err_msg = f"Step {step_num} condition requires input: {step.condition}"
-                        break
-                    else:
-                        steps_executed.append(StepResult(
-                            step_number=step_num,
-                            step_name=step_name,
-                            status="SKIPPED",
-                            tool_name=tool_name,
-                            executed_by="tool",
-                            tool_input={},
-                            tool_output_summary="Step skipped due to condition.",
-                            duration_seconds=0.0
-                        ))
-                        continue
 
             # Resolve step inputs
             step_inputs = dict(step.params or {})
@@ -175,9 +167,9 @@ class WorkflowEngine:
             if step.input_mappings:
                 step_inputs.update(context.resolve_inputs(step.input_mappings))
 
-            # Pass runtime context params if not already set
-            for pk, pv in context.params.items():
-                if pk not in step_inputs and pv is not None:
+            # Pass runtime context params and previous step state if not already set
+            for pk, pv in {**context.params, **context.state}.items():
+                if pk not in step_inputs and pv is not None and not pk.startswith("step_"):
                     step_inputs[pk] = pv
 
             # Execute tool with fallback and retry logic
@@ -194,27 +186,37 @@ class WorkflowEngine:
             step_status = "SUCCESS"
             step_err = None
 
-            is_registered = tool_registry.has_tool(tool_name)
-            executed_by = "tool" if is_registered else "llm"
+            is_llm_step = (tool_name.lower() in ["llm_generate", "llm", "llm_fallback"])
+            is_registered = tool_registry.has_tool(tool_name) and not is_llm_step
+
+            from src.config import OPENAI_API_KEY
+            if is_registered:
+                executed_by = "tool"
+            elif OPENAI_API_KEY and len(OPENAI_API_KEY.strip()) > 10:
+                executed_by = "llm"
+            else:
+                executed_by = "simulated"
 
             for attempt in range(max_retries + 1):
                 try:
                     if is_registered:
                         clean_inputs = {k: v for k, v in step_inputs.items() if k != "tool_name"}
                         step_output = tool_registry.execute(tool_name, **clean_inputs)
+                    elif is_llm_step and tool_registry.has_tool("llm_generate"):
+                        clean_inputs = {k: v for k, v in step_inputs.items() if k != "tool_name"}
+                        step_output = tool_registry.execute("llm_generate", **clean_inputs)
                     else:
-                        # Fallback to simulated autonomous LLM execution
                         step_output = {
                             "status": "SUCCESS",
-                            "executed_by": "llm",
+                            "executed_by": executed_by,
                             "tool_name": tool_name,
-                            "summary": f"Simulated autonomous LLM tool execution for '{tool_name}'",
+                            "summary": f"Simulated autonomous LLM fallback execution for '{tool_name}'",
                             "data": step_inputs
                         }
                     step_status = "SUCCESS"
                     break
                 except Exception as e:
-                    retries_done = attempt
+                    retries_done += 1
                     step_err = str(e)
                     if attempt < max_retries:
                         time.sleep(0.05 * (2 ** attempt))
@@ -233,6 +235,7 @@ class WorkflowEngine:
                     context.set(k, v)
                     final_data[k] = v
 
+            step_summary = self._generate_step_summary(step_name, tool_name, step_inputs, step_output)
             steps_executed.append(StepResult(
                 step_number=step_num,
                 step_name=step_name,
@@ -240,7 +243,7 @@ class WorkflowEngine:
                 tool_name=tool_name,
                 executed_by=executed_by,
                 tool_input=step_inputs,
-                tool_output_summary=step.summary_template or f"Executed step '{step_name}' via {tool_name}.",
+                tool_output_summary=step_summary,
                 tool_output=step_output,
                 details=step_output,
                 error_message=step_err,
@@ -249,41 +252,99 @@ class WorkflowEngine:
             ))
             tools_invoked.append(tool_name)
 
-            # Check parameter presence gates
+            # Evaluate step condition gate
+            cond_expr = step.condition_expr or step.condition
+            if cond_expr:
+                passed, reason = safe_evaluator.evaluate_condition(cond_expr, context.state)
+                branch_action = step.on_true if passed else step.on_false
+
+                cond_name = f"Step {step_num} Gate"
+                if "campaign" in step_name.lower() or "dates" in cond_expr:
+                    cond_name = "Mandatory Campaign Parameter Check"
+                elif "skill" in step_name.lower() or "qualified" in cond_expr or "capacity" in cond_expr:
+                    cond_name = "Capacity & Skill Allocation Rule"
+                elif "order" in step_name.lower() or "found" in cond_expr:
+                    cond_name = "Order Lookup Verification"
+
+                explanation = reason
+                if not passed and isinstance(step_output, dict) and step_output.get("error_message"):
+                    explanation = step_output["error_message"]
+
+                conditions_evaluated.append(ConditionEvaluation(
+                    condition_name=cond_name,
+                    rule_expression=cond_expr,
+                    outcome=passed,
+                    explanation=explanation,
+                    branch_taken=branch_action
+                ))
+
+                if not passed:
+                    if branch_action in ["stop", "ask_user", "escalate"]:
+                        if branch_action == "ask_user":
+                            status = "NEEDS_INPUT"
+                        elif branch_action == "escalate":
+                            status = "FAILED"
+                        else:
+                            status = "FAILED"
+                        err_msg = explanation
+                        break
+                    elif branch_action == "skip":
+                        continue
+
+            # Additional declarative parameter presence check
             if step.params.get("check_keys"):
                 missing = [k for k in step.params["check_keys"] if not context.get(k)]
                 if missing:
                     cond_name = "Mandatory Campaign Parameter Check"
                     msg = f"Please provide {' and '.join(missing)} before generating the brief."
-                    conditions_evaluated.append(ConditionEvaluation(
-                        condition_name=cond_name,
-                        rule_expression="all(k in params for k in check_keys)",
-                        outcome=False,
-                        explanation=msg,
-                        branch_taken="halt"
-                    ))
+                    if not any(c.condition_name == cond_name for c in conditions_evaluated):
+                        conditions_evaluated.append(ConditionEvaluation(
+                            condition_name=cond_name,
+                            rule_expression="all(k in params for k in check_keys)",
+                            outcome=False,
+                            explanation=msg,
+                            branch_taken="halt"
+                        ))
                     status = "NEEDS_INPUT"
                     err_msg = msg
-                    final_summary = msg
                     break
 
             if isinstance(step_output, dict):
+                if step_output.get("skills_provided") is False:
+                    status = "NEEDS_INPUT"
+                    err_msg = step_output.get("error_message") or "Please specify the required skills or role needed for the task."
+                    if not any(c.condition_name == "Task Skills Gate" for c in conditions_evaluated):
+                        conditions_evaluated.append(ConditionEvaluation(
+                            condition_name="Task Skills Gate",
+                            rule_expression="skills_provided",
+                            outcome=False,
+                            explanation=err_msg,
+                            branch_taken="ask_user"
+                        ))
+                    break
                 if step_output.get("found") is False:
-                    status = "FAILED"
-                    err_msg = step_output.get("error_message") or "Identifier not found."
-                    final_summary = err_msg
+                    status = "NEEDS_INPUT"
+                    err_msg = step_output.get("error_message") or f"No order found matching identifier '{params.get('order_id', '')}'. Please provide another identifier."
+                    if not any(c.condition_name == "Order Lookup Verification" for c in conditions_evaluated):
+                        conditions_evaluated.append(ConditionEvaluation(
+                            condition_name="Order Lookup Verification",
+                            rule_expression="found",
+                            outcome=False,
+                            explanation=err_msg,
+                            branch_taken="ask_user"
+                        ))
                     break
                 if step_output.get("decision") == "ESCALATED":
                     status = "FAILED"
                     err_msg = step_output.get("error_message") or "Escalated: No suitable candidate."
-                    final_summary = err_msg
-                    conditions_evaluated.append(ConditionEvaluation(
-                        condition_name="Capacity & Skill Allocation Rule",
-                        rule_expression="has_available_candidates",
-                        outcome=False,
-                        explanation=err_msg,
-                        branch_taken="escalate"
-                    ))
+                    if not any(c.condition_name == "Capacity & Skill Allocation Rule" for c in conditions_evaluated):
+                        conditions_evaluated.append(ConditionEvaluation(
+                            condition_name="Capacity & Skill Allocation Rule",
+                            rule_expression="has_available_candidates",
+                            outcome=False,
+                            explanation=err_msg,
+                            branch_taken="escalate"
+                        ))
                     break
 
             if step_status == "FAILED":
@@ -292,40 +353,39 @@ class WorkflowEngine:
                     err_msg = f"Step '{step_name}' failed: {step_err}"
                     break
                 elif step.on_error == "escalate":
-                    status = "ESCALATED"
+                    status = "FAILED"
                     err_msg = f"Step '{step_name}' escalated: {step_err}"
                     break
 
         # 3. Decision Logic Evaluation
         if wf_def.decision_logic and status == "SUCCESS":
+            decision_expr = safe_evaluator.convert_to_safe_expression(wf_def.decision_logic)
             decision_passed, decision_reason = safe_evaluator.evaluate_condition(
-                wf_def.decision_logic, context.state
+                decision_expr, context.state
             )
             conditions_evaluated.append(ConditionEvaluation(
                 condition_name=f"{wf_def.workflow_name} Rule Gate",
-                rule_expression=wf_def.decision_logic,
+                rule_expression=decision_expr,
                 outcome=decision_passed,
                 explanation=decision_reason,
                 branch_taken="complete"
             ))
 
-        # 4. Final Output Synthesis
+        # 4. Final Output Synthesis with Real Computed Deliverables
         summary_lines = [
             f"### Executed Workflow: {wf_def.workflow_name} ({wf_def.workflow_id})",
             f"**Execution Status:** {status}",
             f"**Total Steps Executed:** {len(steps_executed)}",
-            f"**Deliverable Requirement:** {wf_def.expected_output}",
         ]
-        if final_data:
-            summary_lines.append("\n**Key Output Metrics:**")
-            for k, v in list(final_data.items())[:6]:
-                if not isinstance(v, (dict, list)):
-                    summary_lines.append(f"- **{k}:** {v}")
-
         if err_msg:
-            final_summary = f"{err_msg}\n\n" + "\n".join(summary_lines)
-        else:
-            final_summary = "\n".join(summary_lines)
+            summary_lines.append(f"**Notice / Alert:** {err_msg}")
+
+        summary_lines.extend(self._format_computed_results(final_data))
+
+        final_summary = "\n".join(summary_lines)
+        if err_msg and not final_summary.startswith(err_msg):
+            final_summary = f"{err_msg}\n\n" + final_summary
+
         duration_total = round(time.time() - start_time, 3)
 
         result = WorkflowExecutionResult(
@@ -348,6 +408,114 @@ class WorkflowEngine:
         self._save_execution_log(result)
         self._print_execution_trace(result)
         return result
+
+    def _generate_step_summary(self, step_name: str, tool_name: str, inputs: Dict[str, Any], output: Any) -> str:
+        """Generates dynamic step summaries containing real values, counts, and metrics."""
+        if not output:
+            return f"{step_name}: No output produced."
+
+        if isinstance(output, dict):
+            if output.get("error_message"):
+                return f"{step_name}: {output['error_message']}"
+            if "records" in output and isinstance(output["records"], list):
+                fpath = inputs.get("file_path", "")
+                src_info = f" from {os.path.basename(fpath)}" if fpath else ""
+                return f"Loaded {len(output['records'])} records{src_info}."
+            if "matched_count" in output:
+                return f"Filtered {output['matched_count']} matching records ({output.get('excluded_count', 0)} excluded)."
+            if "clean_rows_count" in output and "invalid_rows_count" in output:
+                return f"Audited feed: {output['clean_rows_count']} clean rows, {output['invalid_rows_count']} invalid rows flagged."
+            if "overdue_count" in output:
+                return f"Found {output['overdue_count']} overdue invoices totaling ${output.get('total_overdue_amount', 0):,.2f}."
+            if "order_id" in output and output.get("found"):
+                carrier = output.get("shipment_details", {}).get("carrier", "Carrier")
+                return f"Retrieved order {output['order_id']} (Status: {output.get('order_status', 'Unknown')}, Carrier: {carrier})."
+            if "assigned_employee" in output:
+                emp = output["assigned_employee"]
+                cap_free = 100 - float(emp.get("current_workload_pct", 50))
+                return f"Selected candidate '{emp.get('name')}' ({emp.get('role', 'Developer')}) with {cap_free:.0f}% available capacity."
+            if "exceptions_flagged_count" in output:
+                return f"Compared {output.get('total_matched', 0)} prices, flagged {output['exceptions_flagged_count']} exceptions >10%."
+            if "definite_duplicates_count" in output or "duplicates_removed" in output:
+                return f"Identified {output.get('definite_duplicates_count', 0)} exact and {output.get('possible_duplicates_count', 0)} fuzzy duplicates."
+            if "intent_distribution" in output:
+                intents_str = ", ".join(f"{k}:{v}" for k, v in output["intent_distribution"].items())
+                return f"Classified search intents ({intents_str})."
+            if "seo_title" in output:
+                return f"Generated SEO Title ({output.get('seo_title_length', 0)} chars): '{output['seo_title']}'"
+            if "meta_description" in output:
+                return f"Generated Meta Description ({output.get('meta_description_length', 0)} chars)."
+            if "messaging_pillars" in output:
+                return f"Synthesized campaign brief with {len(output['messaging_pillars'])} messaging pillars and {len(output.get('channel_recommendations', []))} channels."
+            if "summary" in output:
+                return str(output["summary"])
+
+        return f"Completed {step_name} successfully."
+
+    def _format_computed_results(self, data: Dict[str, Any]) -> List[str]:
+        """Dynamically renders computed output metrics and tables from execution context."""
+        lines = []
+        if not data:
+            return lines
+
+        # 1. Scalar summary metrics (filter out internal/junk keys)
+        junk_keys = {
+            "count", "status", "file_path", "filepath", "path", "source", "valid",
+            "matched_count", "excluded_count", "total_scanned", "total_records",
+            "clean_rows_count", "invalid_rows_count", "skills_provided", "found",
+            "identifier_present", "attribute_audit", "tool_name", "simulated",
+            "params", "type", "operation", "summary"
+        }
+        scalar_metrics = []
+        for k, v in data.items():
+            k_lower = k.lower()
+            if k_lower in junk_keys or k_lower.startswith("step_") or "present" in k_lower or k_lower.endswith("_present"):
+                continue
+            str_v = str(v)
+            if any(p in str_v for p in ["Structured deliverable", "Executed ", "Simulated autonomous"]):
+                continue
+            if isinstance(v, (int, float, bool, str)) and len(str_v) < 120:
+                display_k = k.replace("_", " ").title()
+                scalar_metrics.append(f"- **{display_k}:** {v}")
+
+        if scalar_metrics:
+            lines.append("\n**Key Output Metrics & Indicators:**")
+            lines.extend(scalar_metrics[:10])
+
+        # 2. Tabular record deliverables (lists of dicts)
+        for k, v in data.items():
+            if isinstance(v, list) and v and isinstance(v[0], dict) and not k.startswith("step_"):
+                display_title = k.replace("_", " ").title()
+                lines.append(f"\n**{display_title} ({len(v)} records):**")
+                cols = [c for c in list(v[0].keys())[:6] if not c.startswith("_")]
+                header = "| " + " | ".join(c.replace("_", " ").title() for c in cols) + " |"
+                sep = "| " + " | ".join("---" for _ in cols) + " |"
+                lines.append(header)
+                lines.append(sep)
+                for row in v[:12]:
+                    row_vals = [str(row.get(c, "")).replace("|", "/") for c in cols]
+                    lines.append("| " + " | ".join(row_vals) + " |")
+                if len(v) > 12:
+                    lines.append(f"*... and {len(v) - 12} additional records.*")
+
+        # 3. Structured objects (e.g. details, assignments, audits)
+        for k, v in data.items():
+            if isinstance(v, dict) and not k.startswith("step_") and k not in ["data", "attribute_audit"]:
+                display_title = k.replace("_", " ").title()
+                lines.append(f"\n**{display_title}:**")
+                for sub_k, sub_v in list(v.items())[:8]:
+                    if not isinstance(sub_v, (dict, list)):
+                        lines.append(f"  - **{sub_k.replace('_', ' ').title()}:** {sub_v}")
+
+        # 4. List deliverables (e.g. pillars, recommendations, checklists)
+        for k, v in data.items():
+            if isinstance(v, list) and v and isinstance(v[0], str) and not k.startswith("step_"):
+                display_title = k.replace("_", " ").title()
+                lines.append(f"\n**{display_title}:**")
+                for item in v[:10]:
+                    lines.append(f"  - {item}")
+
+        return lines
 
     def _save_execution_log(self, result: WorkflowExecutionResult) -> None:
         """Saves execution trace to outputs/ directory as structured JSON."""

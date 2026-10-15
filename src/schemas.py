@@ -13,7 +13,12 @@ class StepDefinition(BaseModel):
     tool_name: str
     params: Dict[str, Any] = Field(default_factory=dict, description="Configuration parameters for the tool")
     input_source: Optional[str] = Field(None, description="Expression defining source of step input data")
-    condition: Optional[str] = Field(None, description="Condition expression evaluated before or after step")
+    # Legacy single-field condition (kept for backward compat with synthesized steps)
+    condition: Optional[str] = Field(None, description="Deprecated: use condition_expr instead")
+    # Structured condition trio loaded from Excel columns Condition_Expr / On_True / On_False
+    condition_expr: Optional[str] = Field(None, description="Safe Python expression evaluated against execution context")
+    on_true: str = Field(default="continue", description="Branch action when condition_expr is True: continue|skip|stop|escalate|ask_user")
+    on_false: str = Field(default="continue", description="Branch action when condition_expr is False: continue|skip|stop|escalate|ask_user")
     on_error: str = Field(default="stop", description="Action policy on failure: stop, continue, retry:N, escalate, fallback_llm")
     input_mappings: Dict[str, Any] = Field(default_factory=dict, description="Maps tool arguments to context expressions")
     output_variable: Optional[str] = Field(None, description="Key in execution context where tool output is stored")
@@ -33,13 +38,13 @@ class WorkflowDefinition(BaseModel):
     """Represents a business workflow parsed dynamically from the Excel source with executable step specs."""
     workflow_id: str = Field(description="Unique workflow ID")
     workflow_name: str = Field(description="Descriptive name of the workflow")
-    trigger: str = Field(description="Trigger condition or user intent description")
-    inputs: str = Field(description="Raw description of required and optional inputs")
-    steps_raw: str = Field(description="Raw steps string from Excel separated by arrows")
+    trigger: str = Field(default="", description="Trigger condition or user intent description")
+    inputs: str = Field(default="", description="Raw description of required and optional inputs")
+    steps_raw: str = Field(default="", description="Raw steps string from Excel separated by arrows")
     steps: List[str] = Field(default_factory=list, description="Ordered list of execution steps")
-    decision_logic: str = Field(description="Business logic, thresholds, or conditional rules")
+    decision_logic: str = Field(default="", description="Business logic, thresholds, or conditional rules")
     tools_required: List[str] = Field(default_factory=list, description="List of required tools")
-    expected_output: str = Field(description="Expected output format or deliverable")
+    expected_output: str = Field(default="", description="Expected output format or deliverable")
 
     # Declarative execution specifications
     executable_steps: List[StepDefinition] = Field(default_factory=list, description="Data-driven executable steps")
@@ -65,7 +70,7 @@ class StepResult(BaseModel):
     step_name: str
     status: str = Field(description="SUCCESS, FAILED, SKIPPED, or ESCALATED")
     tool_name: Optional[str] = None
-    executed_by: str = Field(default="tool", description="'tool', 'llm', or 'simulated'")
+    executed_by: str = Field(default="tool", description="'tool' = registered generic primitive; 'simulated' = offline LLM mock; 'llm' = real OpenAI call")
     tool_input: Optional[Dict[str, Any]] = None
     tool_output_summary: Optional[str] = None
     tool_output: Optional[Any] = None

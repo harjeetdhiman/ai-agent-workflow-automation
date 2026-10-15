@@ -80,7 +80,7 @@ class ExcelWorkflowLoader:
             if not wf_id:
                 continue
 
-            wf_name = str(row[col_idx["Workflow_Name"]]).strip() if row[col_idx["Workflow_Name"]] else ""
+            wf_name = str(row[col_idx["Workflow_Name"]]).strip() if row[col_idx["Workflow_Name"]] else f"Unnamed Workflow {wf_id}"
             trigger = str(row[col_idx["Trigger"]]).strip() if row[col_idx["Trigger"]] else ""
             inputs = str(row[col_idx["Inputs"]]).strip() if row[col_idx["Inputs"]] else ""
             steps_raw = str(row[col_idx["Steps"]]).strip() if row[col_idx["Steps"]] else ""
@@ -132,8 +132,10 @@ class ExcelWorkflowLoader:
             tool_idx = h_map.get("tool_name", 3)
             params_idx = h_map.get("params", 4)
             source_idx = h_map.get("input_source", 5)
-            cond_idx = h_map.get("condition", 6)
-            err_idx = h_map.get("on_error", 7)
+            cond_idx = h_map.get("condition_expr", h_map.get("condition", 6))
+            on_true_idx = h_map.get("on_true", None)
+            on_false_idx = h_map.get("on_false", None)
+            err_idx = h_map.get("on_error", 7 if on_true_idx is None else 9)
 
             try:
                 step_order = int(row[order_idx]) if row[order_idx] is not None else len(self._workflows[wf_id].executable_steps) + 1
@@ -155,9 +157,11 @@ class ExcelWorkflowLoader:
                         params = {"raw_params": raw_params}
 
             input_source = str(row[source_idx]).strip() if len(row) > source_idx and row[source_idx] else None
-            cond_val = str(row[cond_idx]).strip() if len(row) > cond_idx and row[cond_idx] else None
-            condition = cond_val if cond_val and cond_val.lower() != "none" else None
-            on_error = str(row[err_idx]).strip() if len(row) > err_idx and row[err_idx] else "continue"
+            cond_val = str(row[cond_idx]).strip() if cond_idx is not None and len(row) > cond_idx and row[cond_idx] else None
+            condition_expr = cond_val if cond_val and cond_val.lower() not in ["none", "null", ""] else None
+            on_true = str(row[on_true_idx]).strip().lower() if on_true_idx is not None and len(row) > on_true_idx and row[on_true_idx] else "continue"
+            on_false = str(row[on_false_idx]).strip().lower() if on_false_idx is not None and len(row) > on_false_idx and row[on_false_idx] else "continue"
+            on_error = str(row[err_idx]).strip().lower() if err_idx is not None and len(row) > err_idx and row[err_idx] else "stop"
 
             step_def = StepDefinition(
                 step_number=step_order,
@@ -165,7 +169,10 @@ class ExcelWorkflowLoader:
                 tool_name=tool_name,
                 params=params,
                 input_source=input_source,
-                condition=condition,
+                condition=condition_expr,
+                condition_expr=condition_expr,
+                on_true=on_true,
+                on_false=on_false,
                 on_error=on_error,
                 output_variable=f"step_{step_order}.output",
                 summary_template=f"Executed {step_name} via {tool_name}"
@@ -237,3 +244,4 @@ class ExcelWorkflowLoader:
 
 # Global singleton instance
 workflow_loader = ExcelWorkflowLoader()
+WorkflowLoader = ExcelWorkflowLoader

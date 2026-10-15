@@ -112,7 +112,7 @@ def test_wf006_duplicate_product_detection():
 
 def test_wf007_marketing_campaign_brief():
     """WF007: Create a campaign brief for the new collection."""
-    query = "Create a campaign brief for the new collection."
+    query = "Create a campaign brief for the new collection with goal of $50k revenue from Nov 20 to Nov 30 2026."
     res = workflow_engine.execute_request(query)
 
     assert res.selected_workflow_id == "WF007"
